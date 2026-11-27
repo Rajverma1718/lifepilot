@@ -5,5 +5,13 @@ service firebase.storage {
    allow read,delete: if request.auth != null && request.auth.uid == uid;
    allow create,update: if request.auth != null && request.auth.uid == uid && request.resource.size <= 10 * 1024 * 1024 && request.resource.contentType.matches('(application/pdf|image/jpeg|image/png|image/webp)');
   }
+  match /families/{family}/documents/{file} {
+   function isOwner(){return request.auth != null && firestore.get(/databases/(default)/documents/families/$(family)).data.owner == request.auth.uid;}
+   function isMember(){return request.auth != null && firestore.exists(/databases/(default)/documents/families/$(family)/members/$(request.auth.uid));}
+   function canManage(){return isOwner() || (isMember() && firestore.get(/databases/(default)/documents/families/$(family)/members/$(request.auth.uid)).data.role == 'parent');}
+   allow read: if isOwner() || isMember();
+   allow create,update: if canManage() && request.resource.size <= 10 * 1024 * 1024 && request.resource.contentType.matches('(application/pdf|image/jpeg|image/png|image/webp)');
+   allow delete: if canManage();
+  }
  }
 }

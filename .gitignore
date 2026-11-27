@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.firebase/
+.firebase-cli/
+foodbridge/
+*-debug.log
+.env*
+*-service-account*.json

@@ -1,4 +1,5 @@
 import {getFirestore,doc,collection,setDoc,getDoc,getDocs,deleteDoc,runTransaction} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import {mountVault} from './vault.js';
 let db;
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const timeout=p=>Promise.race([p,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Cloud connection timed out. Please retry.')),12000))]);
@@ -43,6 +44,7 @@ export async function mountFamily(root,user){
  (owner?'<h3>Invite a person</h3><form id="invite-form"><label>Email<input name="email" type="email" required></label><label>Access<select name="role"><option value="viewer">Viewer — view tasks</option><option value="member">Member — manage tasks</option><option value="parent">Parent — manage tasks</option></select></label><button class="primary">Create invitation link</button></form><p id="invite-link"></p>':'')+
  '<h3>Shared tasks</h3>'+tasks.docs.map(t=>'<div class="item"><span>'+escape(t.data().title)+' · '+escape(t.data().due)+' · '+(t.data().done?'Done':'Open')+'</span>'+(canEdit?'<button class="ghost" data-toggle="'+escape(t.id)+'">'+(t.data().done?'Reopen':'Complete')+'</button>':'')+'</div>').join('')+
  (canEdit?'<form id="shared-task"><label>Task<input name="title" required maxlength="200"></label><label>Due date<input name="due" type="date" required></label><button class="primary">Add shared task</button></form>':'<p>You have view-only access.</p>');
+ const vault=document.createElement('div');target.append(vault);mountVault(vault,user,id,role);
  message.textContent='Family data loaded.';
  if(owner){
  target.querySelector('#invite-form').onsubmit=e=>{e.preventDefault();const values=Object.fromEntries(new FormData(e.target));action(async()=>{const code=crypto.randomUUID();await setDoc(doc(db,'familyInvites',code),{familyId:id,email:values.email.trim().toLowerCase(),role:values.role,expiresAt:Date.now()+7*86400000});const link=new URL(location.href);link.search='';link.searchParams.set('invite',code);const p=target.querySelector('#invite-link');p.textContent='Copy and share this link with the invited person: ';const a=document.createElement('a');a.href=link.href;a.textContent=link.href;p.append(a)})};
