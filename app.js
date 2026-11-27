@@ -4,7 +4,7 @@ import {getFirestore,doc,onSnapshot,setDoc,runTransaction} from 'https://www.gst
 import {getStorage,ref,uploadBytes,getBlob,deleteObject} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 import {firebaseConfig} from './firebase-config.js';
 import {mountFamily} from './family.js';
-import {emptyData,escapeHTML as esc,dueItems,report,nextDue} from './model.js';
+import {emptyData,escapeHTML as esc,dueItems,report,nextDue,csvReport} from './model.js';
 const fb=initializeApp(firebaseConfig),auth=getAuth(fb),db=getFirestore(fb),storage=getStorage(fb),root=document.querySelector('#app');
 let user=null,data=emptyData(),view='dashboard',ready=false,unsubscribe=null,epoch=0,busy=false,cloudMessage='Connecting…';
 const deadline=(promise,ms=12000)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Connection timed out. Check your internet connection and retry.')),ms);promise.then(v=>{clearTimeout(timer);resolve(v)},e=>{clearTimeout(timer);reject(e)})});
@@ -52,7 +52,7 @@ function render(){
  root.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>change(async()=>{const item=data.documents.find(x=>x.id===b.dataset.open);if(!item.path)throw new Error('This older entry has no uploaded file.');download(await deadline(getBlob(ref(storage,item.path))),item.fileName||item.name)}));
  root.querySelector('#verify')?.addEventListener('click',()=>change(async()=>{await sendEmailVerification(user);notice('Verification email sent. After verifying, sign out and sign in again.')}));
  root.querySelector('#notifications')?.addEventListener('click',()=>change(async()=>{if(!('Notification'in window))throw new Error('Notifications are not supported in this browser.');const permission=await Notification.requestPermission();notice(permission==='granted'?'Browser reminders enabled.':'Browser reminders were not enabled.');remind()}));
- root.querySelector('#export-csv')?.addEventListener('click',()=>{const rows=[['Type','Name','Date','Status'],...data.tasks.map(x=>['Task',x.title,x.due,x.done?'Done':'Open']),...data.bills.map(x=>['Bill',x.name,x.due,x.paid?'Paid':'Unpaid'])];download(new Blob([rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""').replace(/^[=+@-]/,"'$&")+'"').join(',')).join('\r\n')],{type:'text/csv'}),'lifepilot-report.csv')});
+ root.querySelector('#export-csv')?.addEventListener('click',()=>download(new Blob([csvReport(data)],{type:'text/csv;charset=utf-8'}),'lifepilot-report.csv'));
  root.querySelector('#backup')?.addEventListener('click',()=>download(new Blob([JSON.stringify({version:1,data},null,2)],{type:'application/json'}),'lifepilot-backup.json'));
  root.querySelector('#restore')?.addEventListener('click',()=>{const input=document.createElement('input');input.type='file';input.accept='.json';input.onchange=()=>change(async()=>{const parsed=JSON.parse(await input.files[0].text());if(parsed.version!==1||!['tasks','bills','documents'].every(k=>Array.isArray(parsed.data?.[k])))throw new Error('This is not a supported LifePilot backup.');if(confirm('Replace your current metadata with this backup?'))await commit({...emptyData(),...parsed.data})});input.click()});
  if(view==='family'&&ready)mountFamily(root.querySelector('#family-root'),user);
