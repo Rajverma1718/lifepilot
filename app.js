@@ -37,5 +37,5 @@ async function add(type){
   if(type==='family')data.family.push({id:Date.now(),name,role:'Trusted person',email:'pending'});
   await save();render()
 }
-onAuthStateChanged(auth,async user=>{currentUser=user;if(!user){authScreen();return}try{await loadData();render()}catch(e){authScreen('Could not load your data. Please try again.')}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(!user){authScreen();return}try{await loadData();render()}catch(e){console.error(e);data=defaults();render()}});
 
