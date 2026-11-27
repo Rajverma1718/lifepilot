@@ -1,6 +1,42 @@
 rules_version = '2';
-service cloud.firestore { match /databases/{database}/documents {
-  match /users/{uid}/{document=**} { allow read, write: if request.auth != null && request.auth.uid == uid; }
-  match /{document=**} { allow read, write: if false; }
-}}
-
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signed(){return request.auth != null;}
+  function owner(f){return signed() && get(/databases/$(database)/documents/families/$(f)).data.owner == request.auth.uid;}
+  function member(f){return signed() && exists(/databases/$(database)/documents/families/$(f)/members/$(request.auth.uid));}
+  function editor(f){return owner(f) || (member(f) && get(/databases/$(database)/documents/families/$(f)/members/$(request.auth.uid)).data.role in ['parent','member']);}
+  match /users/{uid} {
+   allow read,write: if signed() && request.auth.uid == uid;
+   match /{sub}/{id} {allow read,write: if signed() && request.auth.uid == uid;}
+  }
+  match /families/{f} {
+   allow create: if signed() && request.resource.data.owner == request.auth.uid && request.resource.data.keys().hasOnly(['name','owner']);
+   allow read: if owner(f) || member(f);
+   allow update: if owner(f) && request.resource.data.owner == resource.data.owner;
+   match /members/{uid} {
+    allow read: if owner(f) || member(f);
+    allow create: if signed() && request.auth.uid == uid && request.auth.token.email_verified == true
+      && request.resource.data.keys().hasOnly(['email','role','invitationId'])
+      && request.resource.data.email == request.auth.token.email
+      && get(/databases/$(database)/documents/familyInvites/$(request.resource.data.invitationId)).data.familyId == f
+      && get(/databases/$(database)/documents/familyInvites/$(request.resource.data.invitationId)).data.email == request.auth.token.email.lower()
+      && get(/databases/$(database)/documents/familyInvites/$(request.resource.data.invitationId)).data.role == request.resource.data.role
+      && get(/databases/$(database)/documents/familyInvites/$(request.resource.data.invitationId)).data.expiresAt > request.time.toMillis();
+    allow update: if owner(f) && request.resource.data.invitationId == resource.data.invitationId;
+    allow delete: if owner(f);
+   }
+   match /tasks/{id} {
+    allow read: if owner(f) || member(f);
+    allow create,update: if editor(f) && request.resource.data.keys().hasOnly(['title','due','done']) && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200 && request.resource.data.due is string && request.resource.data.done is bool;
+    allow delete: if editor(f);
+   }
+  }
+  match /familyInvites/{code} {
+   allow get: if signed() && (owner(resource.data.familyId) || (request.auth.token.email_verified == true && resource.data.email == request.auth.token.email.lower()));
+   allow list: if false;
+   allow create: if owner(request.resource.data.familyId) && request.resource.data.keys().hasOnly(['familyId','email','role','expiresAt']) && request.resource.data.role in ['parent','member','viewer'] && request.resource.data.email is string && request.resource.data.expiresAt > request.time.toMillis() && request.resource.data.expiresAt <= request.time.toMillis() + 604800000;
+   allow update: if false;
+   allow delete: if owner(resource.data.familyId);
+  }
+ }
+}
