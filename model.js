@@ -1,0 +1,4 @@
+export const emptyData=()=>({tasks:[],bills:[],documents:[]});
+export const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function report(data){return {done:data.tasks.filter(x=>x.done).length,open:data.tasks.filter(x=>!x.done).length,paid:data.bills.filter(x=>x.paid).length,unpaid:data.bills.filter(x=>!x.paid).reduce((sum,x)=>sum+Number(x.amount||0),0)}}
+export function dueItems(data,today=new Date().toLocaleDateString('en-CA')){const end=new Date(today+'T12:00:00');end.setDate(end.getDate()+7);const limit=end.toLocaleDateString('en-CA');return [...data.tasks.filter(x=>!x.done).map(x=>({id:x.id,title:x.title,date:x.due})),...data.bills.filter(x=>!x.paid).map(x=>({id:x.id,title:x.name,date:x.due})),...data.documents.map(x=>({id:x.id,title:x.name,date:x.expiry}))].filter(x=>x.date&&x.date<=limit).sort((a,b)=>a.date.localeCompare(b.date))}
