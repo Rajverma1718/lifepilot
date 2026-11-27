@@ -38,4 +38,5 @@ async function add(type){
   await save();render()
 }
 onAuthStateChanged(auth,async user=>{currentUser=user;if(!user){authScreen();return}try{await loadData();render()}catch(e){console.error(e);data=defaults();render()}});
+setInterval(()=>{const msg=document.querySelector('.auth-msg');if(msg&&msg.textContent==='Please wait.')msg.textContent='Sign-in is taking too long. Check the account details or try Google login.'},15000);
 
